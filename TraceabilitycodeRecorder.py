@@ -2,6 +2,8 @@ import os
 import json
 from webdav3.client import Client
 import tkinter as tk
+from tkinter import ttk
+from ttkbootstrap import Style
 from tkinter import messagebox, simpledialog
 from barcode import Code128
 from barcode.writer import ImageWriter
@@ -9,6 +11,7 @@ from io import BytesIO
 from PIL import ImageTk, Image
 import datetime
 import logging
+
 
 # 日志配置
 log_directory = os.path.join(os.environ['USERPROFILE'], 'Documents', 'Traceability code records', 'log')
@@ -26,7 +29,7 @@ data_filename = os.path.join(data_directory, 'medicine_data.txt')
 def load_webdav_config():
     with open('webdav_config.json', 'r') as file:
         config = json.load(file)
-        print("Loaded WebDAV configuration:", config)
+        # print("Loaded WebDAV configuration:", config)
         # logging.info("Loaded WebDAV configuration: %s", config)
         return config
 
@@ -113,7 +116,7 @@ def check_webdav_connection(filename):
         logging.info(f"WebDAV connection successful.")
         return True, data
     except Exception as e:
-        print(f"Error checking WebDAV connection: {e}")
+        # print(f"Error checking WebDAV connection: {e}")
         # logging.error(f"Error checking WebDAV connection: {e}")
         return False, {}
 
@@ -124,9 +127,9 @@ class MedicineTrackerApp:
         self.filename = filename
         self.data = None
         self.last_searched_barcode = None
+        root.resizable(False, False)
+        root.iconbitmap('app_icon.ico')
 
-        # print("Starting MedicineTrackerApp...")
-        # logging.info("Starting MedicineTrackerApp...")
 
         # 检查WebDAV连接
         self.webdav_connected, self.data = check_webdav_connection(self.filename)
@@ -134,60 +137,258 @@ class MedicineTrackerApp:
             # 如果WebDAV连接失败，尝试从本地读取数据
             self.data = read_data(self.filename)
 
-        # 设置窗口图标
-        root.iconbitmap('app_icon.ico')
+
 
         # 设置窗口标题
-        version_number = "v0.1.0"  # 设置版本号
-        self.root.title(f"追溯码记录器 {version_number}")
+        self.root.title(f"追溯码记录器")
         self.center_window(self.root)
 
-        # 在窗口底部添加版本号标签
-        self.version_label = tk.Label(root, text=f"版本: {version_number}", font=("Arial", 8))
-        self.version_label.pack(side=tk.BOTTOM, pady=5)
 
         # 输入框
-        self.barcode_entry = tk.Entry(root, width=50)
-        self.barcode_entry.pack(pady=10)
+        self.barcode_entry = tk.Entry(root, width=40)
+        self.barcode_entry.grid(row=0, column=0, pady=10, padx=20, sticky='ew')  # 使用grid布局
         self.barcode_entry.focus_set()  # 默认焦点
         self.barcode_entry.bind('<Return>', self.on_search_or_add_traceability)
 
         # 添加追溯码按钮
         self.add_traceability_button = tk.Button(root, text="添加追溯码", command=self.on_add_traceability)
-        self.add_traceability_button.pack(pady=5)
+        self.add_traceability_button.grid(row=0, column=1, pady=5, padx=0)  # 使用grid布局
+
+        # 添加显示所有药品信息的按钮
+        self.show_all_button = tk.Button(root, text="显示所有药品信息", command=self.show_all_medications)
+        self.show_all_button.grid(row=1, column=0, columnspan=2, pady=5)  # 使用grid布局
+
+        # 添加药名
+        # self.add_medication_button = tk.Button(root, text="添加药名")
+        # self.add_medication_button.grid(row=1, column=1, sticky='ew', padx=5)
+
 
         # 显示药品信息
         self.medication_label = tk.Label(root, text="", wraplength=300)
-        self.medication_label.pack(pady=10)
+        self.medication_label.grid(row=2, column=0, columnspan=2, pady=10)  # 使用grid布局
 
         # 显示追溯码列表
         self.traceability_listbox = tk.Listbox(root, width=50)
-        self.traceability_listbox.pack(pady=10)
+        self.traceability_listbox.grid(row=3, column=0, columnspan=2, pady=10)  # 使用grid布局
         self.traceability_listbox.bind('<Double-Button-1>', self.on_copy_and_delete)
 
         # 设置主窗口的背景颜色
         self.root.configure(bg='white')
 
-        # 添加开发者信息
-        self.developer_label = tk.Label(root, text="by 张强", font=("Arial", 8))
-        self.developer_label.pack(side=tk.BOTTOM, pady=5)
 
-        # 显示连接状态
-        self.connection_status_label = tk.Label(root, text="", font=("Arial", 10))
-        self.connection_status_label.pack(pady=5)
+        # 添加设置按钮
+        self.settings_button = tk.Button(root, text="设置", command=self.open_settings_window)
+        self.settings_button.grid(row=7, column=0, columnspan=2, pady=5)  # 使用grid布局
+
+    def open_settings_window(self):
+        settings_window = tk.Toplevel(self.root)
+        settings_window.title("设置")
+        window_width = 400
+        window_height = 300
+        screen_width = settings_window.winfo_screenwidth()
+        screen_height = settings_window.winfo_screenheight()
+        settings_window.resizable(False, False)  # 禁止调整窗口大小
+        settings_window.iconbitmap('app_icon.ico')  # 设置窗口图标
+
+        # 计算窗口居中的位置
+        x_cordinate = int((screen_width / 2) - (window_width / 2))
+        y_cordinate = int((screen_height / 2) - (window_height / 2))
+
+        # 设置窗口的几何尺寸，包括位置
+        settings_window.geometry(f"{window_width}x{window_height}+{x_cordinate+40}+{y_cordinate+80}")
+
+        notebook = ttk.Notebook(settings_window)
+        notebook.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # 实验室标签页
+        lab_tab = ttk.Frame(notebook)
+        notebook.add(lab_tab, text="实验室")
+        self.create_lab_interface(lab_tab)
+
+        # 登录标签页
+        login_tab = ttk.Frame(notebook)
+        notebook.add(login_tab, text="登录")
+        self.create_login_interface(login_tab)
+
+        # WebDAV标签页
+        webdav_tab = ttk.Frame(notebook)
+        notebook.add(webdav_tab, text="WebDAV")
+        self.create_webdav_interface(webdav_tab)
+
+        # 导入导出标签页
+        io_tab = ttk.Frame(notebook)
+        notebook.add(io_tab, text="导入导出")
+        self.create_io_interface(io_tab)
+
+        # 关于标签页
+        about_tab = ttk.Frame(notebook)
+        notebook.add(about_tab, text="关于")
+        self.create_about_interface(about_tab)
+
+    def create_lab_interface(self, parent):
+        # 监听扫码枪
+        checkbox_var = tk.BooleanVar()
+        ttk.Checkbutton(parent, text="监听扫码枪", variable=checkbox_var).pack(pady=5)
+
+        # 监听销售平台
+        checkbox_var = tk.BooleanVar()
+        ttk.Checkbutton(parent, text="监听销售平台", variable=checkbox_var).pack(pady=5)
+
+        # 连接状态
+        self.connection_status_label = ttk.Label(parent, text="", font=("Arial", 10))
+        self.connection_status_label.pack(padx=10, pady=5)
+        self.update_connection_status()
+
+    def update_connection_status(self):
         if self.webdav_connected:
-            self.connection_status_label.config(text="已成功连接WebDAV服务器", fg="green")
+            self.connection_status_label.config(text="已成功连接WebDAV服务器", foreground="green")
         else:
-            self.connection_status_label.config(text="未连接WebDAV服务器", fg="red")
+            self.connection_status_label.config(text="未连接WebDAV服务器", foreground="red")
 
-        # 启用或禁用主要功能
-        if self.data is not None:
-            self.enable_ui()
-        else:
-            self.disable_ui()
+    def create_login_interface(self, parent):
+        style = ttk.Style()
+        style.configure('Passport.TLabel', font=('Arial', 24))
+        ttk.Label(parent, text="通行证", style='Passport.TLabel').pack(pady=10)
 
-        # print("Finished initializing MedicineTrackerApp.")
-        # logging.info("Finished initializing MedicineTrackerApp.")
+        ttk.Label(parent, text="用户名:").pack()
+        username_entry = ttk.Entry(parent)
+        username_entry.pack(pady=5)
+
+        ttk.Label(parent, text="密码:").pack()
+        password_entry = ttk.Entry(parent, show="*")
+        password_entry.pack(pady=5)
+
+        login_button = ttk.Button(parent, text="登录", command=lambda: self.login(username_entry, password_entry))
+        login_button.pack(pady=10)
+
+    def login(self, username_entry, password_entry):
+        # 登录逻辑
+        pass
+
+    def create_webdav_interface(self, parent):
+        webdav_config = load_webdav_config()
+
+        # 设置居中布局
+        for i in range(4):
+            parent.columnconfigure(i, weight=1)
+
+        # 读取配置文件中的值
+        hostname = webdav_config.get('webdav_hostname', '')
+        username = webdav_config.get('webdav_login', '')
+        password = webdav_config.get('webdav_password', '')
+        root = webdav_config.get('webdav_root', '')
+
+        # 创建输入框和标签
+        ttk.Label(parent, text="主机名:").grid(row=0, column=0, sticky='e')
+        hostname_entry = ttk.Entry(parent, width=40)
+        hostname_entry.insert(0, hostname)
+        hostname_entry.grid(row=0, column=1, columnspan=3, padx=5, pady=5)
+
+        ttk.Label(parent, text="用户名:").grid(row=1, column=0, sticky='e')
+        username_entry = ttk.Entry(parent, width=40)
+        username_entry.insert(0, username)
+        username_entry.grid(row=1, column=1, columnspan=3, padx=5, pady=5)
+
+        ttk.Label(parent, text="密码:").grid(row=2, column=0, sticky='e')
+        password_entry = ttk.Entry(parent, show="*", width=40)
+        password_entry.insert(0, password)
+        password_entry.grid(row=2, column=1, columnspan=3, padx=5, pady=5)
+
+        ttk.Label(parent, text="根路径:").grid(row=3, column=0, sticky='e')
+        root_entry = ttk.Entry(parent, width=40)
+        root_entry.insert(0, root)
+        root_entry.grid(row=3, column=1, columnspan=3, padx=5, pady=5)
+
+        # 保存按钮
+        save_button = ttk.Button(parent, text="保存", command=lambda: self.save_webdav_config(webdav_config, hostname_entry, username_entry, password_entry, root_entry))
+        save_button.grid(row=4, column=2, pady=10)
+
+    def save_webdav_config(self, config, hostname_entry, username_entry, password_entry, root_entry):
+        # 更新配置
+        config['webdav_hostname'] = hostname_entry.get()
+        config['webdav_login'] = username_entry.get()
+        config['webdav_password'] = password_entry.get()
+        config['webdav_root'] = root_entry.get()
+
+        # 保存配置
+        with open('webdav_config.json', 'w') as file:
+            json.dump(config, file, indent=4)
+
+        # 更新连接状态
+        self.webdav_connected = check_webdav_connection(config)
+        self.update_connection_status()
+
+    def create_io_interface(self, parent):
+        # 设置居中布局
+        parent.columnconfigure(0, weight=1)
+
+        import_button = ttk.Button(parent, text="导入")
+        import_button.pack(pady=5)
+
+        export_button = ttk.Button(parent, text="导出")
+        export_button.pack(pady=5)
+
+
+    def create_about_interface(self, parent):
+        # 设置居中布局
+        parent.columnconfigure(0, weight=1)
+
+        ttk.Label(parent, text="这是关于页面。").pack(padx=10, pady=10)
+        developer_label = ttk.Label(parent, text="by 张强")
+        developer_label.pack(pady=5)
+        version_number = "0.1.1"
+        version_label = ttk.Label(parent, text=f"版本: {version_number}")
+        version_label.pack(pady=5)
+
+    def show_all_medications(self):
+        # 创建一个顶级窗口来显示所有药品信息
+        all_medications_window = tk.Toplevel(self.root)
+        all_medications_window.title("所有药品信息")
+
+        # 计算弹窗大小
+        item_height = 20  # 每个项目的高度
+        padding = 10  # 内边距
+        border_width = 2  # 边框宽度
+        window_width = 400  # 固定宽度
+        window_height = (len(self.data) * item_height) + (padding * 2) + border_width * 2
+
+        # 居中显示弹窗
+        screen_width = all_medications_window.winfo_screenwidth()
+        screen_height = all_medications_window.winfo_screenheight()
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        all_medications_window.geometry(f"{window_width}x{window_height}+{x+30}+{y-20}")
+
+        all_medications_listbox = tk.Listbox(all_medications_window, selectmode=tk.SINGLE, width=50,
+                                             height=len(self.data))
+        all_medications_listbox.pack(padx=padding, pady=padding, fill=tk.BOTH, expand=True)
+
+        for barcode, (medication, *traceabilities) in self.data.items():
+            info_text = f"条形码: {barcode}  \n追溯码数量: {len(traceabilities)}  \n药品名称: {medication}"
+            all_medications_listbox.insert(tk.END, info_text)
+
+        # 默认选择第一个项目
+        all_medications_listbox.select_set(0)  # 选择第一个项目
+        all_medications_listbox.event_generate("<<ListboxSelect>>")  # 触发选择事件
+
+        def on_select(event):
+            selected_index = all_medications_listbox.curselection()
+            if selected_index:
+                index = selected_index[0]
+                barcode, (medication, *traceabilities) = list(self.data.items())[index]
+                self.display_info(barcode)
+                self.last_searched_barcode = barcode
+                all_medications_window.destroy()
+
+        all_medications_listbox.bind('<<ListboxSelect>>', lambda event: None)  # 避免默认选择行为
+        all_medications_listbox.bind('<Double-Button-1>', lambda event: on_select(event))  # 双击选择
+        all_medications_listbox.bind('<Return>', lambda event: on_select(event))  # 回车键选择
+        all_medications_listbox.bind('<Up>',
+                                     lambda event: self.handle_up_down_key(all_medications_listbox, event))  # 上键
+        all_medications_listbox.bind('<Down>',
+                                     lambda event: self.handle_up_down_key(all_medications_listbox, event))  # 下键
+        all_medications_listbox.focus_set()  # 设置焦点
+        all_medications_window.bind('<Escape>', lambda event: all_medications_window.destroy())
 
     def center_window(self, window):
         # 获取屏幕尺寸
@@ -198,14 +399,6 @@ class MedicineTrackerApp:
         x = (screen_width - 400) // 2
         y = (screen_height - 420) // 2  # 调整窗口高度
         window.geometry(f"400x420+{x}+{y}")  # 调整窗口高度
-
-    def enable_ui(self):
-        self.barcode_entry.config(state=tk.NORMAL)
-        self.add_traceability_button.config(state=tk.NORMAL)
-
-    def disable_ui(self):
-        self.barcode_entry.config(state=tk.DISABLED)
-        self.add_traceability_button.config(state=tk.DISABLED)
 
     def on_search_or_add_traceability(self, event):
         if not self.barcode_entry.get() and self.last_searched_barcode is not None:
@@ -219,25 +412,30 @@ class MedicineTrackerApp:
         if not search_term:
             return
 
-        self.barcode_entry.delete(0, tk.END)  # 清除输入框内容
+        # 新增的检查：验证条形码是否为13位数字或为"0"
+        if (search_term.isdigit() and len(search_term) == 13) or search_term == "0":
+            self.barcode_entry.delete(0, tk.END)  # 清除输入框内容
 
-        # 搜索药品名称
-        matches = []
-        for barcode, (medication, *traceabilities) in self.data.items():
-            if search_term.lower() in medication.lower():
-                matches.append((medication, barcode, traceabilities))
-
-        if matches:
-            self.show_multiple_matches(matches)
-        elif search_term.isdigit():  # 如果没有匹配药品名称，检查是否为条形码
+            # 如果是13位数字或"0"，则按条形码搜索
             if search_term in self.data:
                 self.display_info(search_term)
                 self.last_searched_barcode = search_term
             else:
                 if messagebox.askyesno("提示", "未找到条形码信息，是否创建新记录？"):
                     self.create_new_record(search_term)
-        else:
-            messagebox.showinfo("提示", "未找到相关药品，请检查输入或创建新记录。")
+                else:
+                    messagebox.showinfo("提示", "未找到相关药品，请检查输入或创建新记录。")
+        elif search_term.isdigit():  # 如果是数字但不是13位
+            messagebox.showerror("错误", "条形码必须是13位数字。")
+        else:  # 如果不是数字，按药品名称搜索
+            matches = []
+            for barcode, (medication, *traceabilities) in self.data.items():
+                if search_term.lower() in medication.lower():
+                    matches.append((medication, barcode, traceabilities))
+            if matches:
+                self.show_multiple_matches(matches)
+            else:
+                messagebox.showinfo("提示", "未找到相关药品，请检查输入。")
 
     def show_multiple_matches(self, matches):
         # 创建一个顶级窗口来显示多个匹配项
@@ -256,18 +454,19 @@ class MedicineTrackerApp:
         screen_height = match_window.winfo_screenheight()
         x = (screen_width - window_width) // 2
         y = (screen_height - window_height) // 2
-        match_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        match_window.geometry(f"{window_width}x{window_height}+{x+30}+{y-20}")
 
         listbox = tk.Listbox(match_window, selectmode=tk.SINGLE, width=50, height=len(matches))
         listbox.pack(padx=padding, pady=padding, fill=tk.BOTH, expand=True)
 
         for medication, barcode, traceabilities in matches:
-            info_text = f"药品名称: {medication}\n  条形码: {barcode}\n  追溯码数量: {len(traceabilities)}"
+            info_text = f"条形码: {barcode}\n  追溯码数量: {len(traceabilities)}\n  药品名称: {medication}"
             listbox.insert(tk.END, info_text)
 
         # 默认选择第一个项目
         listbox.select_set(0)  # 选择第一个项目
         listbox.event_generate("<<ListboxSelect>>")  # 触发选择事件
+        match_window.bind('<Escape>', lambda event: match_window.destroy())
 
         def on_select(event):
             selected_index = listbox.curselection()
@@ -309,17 +508,31 @@ class MedicineTrackerApp:
         for trace in traceabilities:
             self.traceability_listbox.insert(tk.END, trace)
 
+
+
     def create_new_record(self, barcode):
         medication = simpledialog.askstring("输入", "请输入药品名称:")
         if medication:
-            traceability = simpledialog.askstring("输入", "请输入追溯码:")
-            if traceability:
-                if traceability in self.data.get(barcode, []):
-                    messagebox.showerror("错误", "该追溯码已存在，不能添加重复的追溯码。")
-                elif self.check_traceability_in_logs(traceability):
-                    response = messagebox.askyesno("提示",
-                                                   f"该追溯码已于 {self.find_traceability_date(traceability)} 添加过，是否继续添加？")
-                    if response:
+            # 新增的检查：验证追溯码是否为20位数字
+            while True:
+                traceability = simpledialog.askstring("输入", "请输入追溯码:")
+                if traceability and (traceability.isdigit() and len(traceability) == 20):
+                    if traceability in self.data.get(barcode, []):
+                        messagebox.showerror("错误", "该追溯码已存在，不能添加重复的追溯码。")
+                    elif self.check_traceability_in_logs(traceability):
+                        response = messagebox.askyesno("提示",
+                                                       f"该追溯码已于 {self.find_traceability_date(traceability)} 添加过，是否继续添加？")
+                        if response:
+                            self.data[barcode] = [medication, traceability]
+                            if self.webdav_connected:
+                                write_data_to_webdav(self.filename, self.data)
+                            else:
+                                write_data(self.filename, self.data)
+                            self.display_info(barcode)
+                            self.last_searched_barcode = barcode
+                            self.log_event('CREATE', barcode, medication, traceability)
+                            break
+                    else:
                         self.data[barcode] = [medication, traceability]
                         if self.webdav_connected:
                             write_data_to_webdav(self.filename, self.data)
@@ -328,15 +541,13 @@ class MedicineTrackerApp:
                         self.display_info(barcode)
                         self.last_searched_barcode = barcode
                         self.log_event('CREATE', barcode, medication, traceability)
+                        break
+                elif traceability:
+                    messagebox.showerror("错误", "追溯码必须是20位数字。")
                 else:
-                    self.data[barcode] = [medication, traceability]
-                    if self.webdav_connected:
-                        write_data_to_webdav(self.filename, self.data)
-                    else:
-                        write_data(self.filename, self.data)
-                    self.display_info(barcode)
-                    self.last_searched_barcode = barcode
-                    self.log_event('CREATE', barcode, medication, traceability)
+                    break
+        self.barcode_entry.focus_set()
+
 
     def check_traceability_in_logs(self, traceability):
         # 检查日志文件是否存在该追溯码
@@ -358,13 +569,27 @@ class MedicineTrackerApp:
         if self.last_searched_barcode is None:
             messagebox.showwarning("警告", "请先查询条形码")
             return
-        traceability = simpledialog.askstring("输入", "请输入新的追溯码:")
-        if traceability:
-            if traceability in self.data.get(self.last_searched_barcode, []):
-                messagebox.showerror("错误", "该追溯码已存在，不能添加重复的追溯码。")
-            elif self.check_traceability_in_logs(traceability):
-                response = messagebox.askyesno("提示", f"该追溯码已于 {self.find_traceability_date(traceability)} 添加过，是否继续添加？")
-                if response:
+
+        # 新增的检查：验证追溯码是否为20位数字
+        while True:
+            traceability = simpledialog.askstring("输入", "请输入新的追溯码:")
+            if traceability and (traceability.isdigit() and len(traceability) == 20):
+                if traceability in self.data.get(self.last_searched_barcode, []):
+                    messagebox.showerror("错误", "该追溯码已存在，不能添加重复的追溯码。")
+                elif self.check_traceability_in_logs(traceability):
+                    response = messagebox.askyesno("提示",
+                                                   f"该追溯码已于 {self.find_traceability_date(traceability)} 添加过，是否继续添加？")
+                    if response:
+                        self.data[self.last_searched_barcode].append(traceability)
+                        if self.webdav_connected:
+                            write_data_to_webdav(self.filename, self.data)
+                        else:
+                            write_data(self.filename, self.data)
+                        self.display_info(self.last_searched_barcode)
+                        self.log_event('ADD', self.last_searched_barcode, self.data[self.last_searched_barcode][0],
+                                       traceability)
+                        break
+                else:
                     self.data[self.last_searched_barcode].append(traceability)
                     if self.webdav_connected:
                         write_data_to_webdav(self.filename, self.data)
@@ -373,19 +598,13 @@ class MedicineTrackerApp:
                     self.display_info(self.last_searched_barcode)
                     self.log_event('ADD', self.last_searched_barcode, self.data[self.last_searched_barcode][0],
                                    traceability)
-                    # 将焦点设置回输入框
-                    self.barcode_entry.focus_set()
+                    break
+            elif traceability:
+                messagebox.showerror("错误", "追溯码必须是20位数字。")
             else:
-                self.data[self.last_searched_barcode].append(traceability)
-                if self.webdav_connected:
-                    write_data_to_webdav(self.filename, self.data)
-                else:
-                    write_data(self.filename, self.data)
-                self.display_info(self.last_searched_barcode)
-                self.log_event('ADD', self.last_searched_barcode, self.data[self.last_searched_barcode][0],
-                               traceability)
-                # 将焦点设置回输入框
-                self.barcode_entry.focus_set()
+                break
+
+        self.barcode_entry.focus_set()
 
     def on_copy_and_delete(self, event):
         selected_index = self.traceability_listbox.curselection()
@@ -450,9 +669,6 @@ class MedicineTrackerApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    print("Creating MedicineTrackerApp instance...")
-    # logging.info("Creating MedicineTrackerApp instance...")
+    style = Style(theme='litera')
     app = MedicineTrackerApp(root, data_filename)
-    print("Starting main loop...")
-    # logging.info("Starting main loop...")
     root.mainloop()
